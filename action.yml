@@ -1,0 +1,194 @@
+name: "Build Steam game image"
+description: >-
+  Download a Steam game via steamcmd and push it as a private OCI image to your
+  own registry (defaults to RimWorld, app 294100). The game image is never
+  published by this action; you push it to a registry you control.
+author: cryptiklemur
+
+inputs:
+  steam-username:
+    description: "Steam account name that owns the game and matches the config.vdf session."
+    required: true
+  steam-config-vdf:
+    description: "Base64-encoded steamcmd config.vdf for a logged-in session (a repo secret)."
+    required: true
+  app-id:
+    description: "Steam app id to download."
+    required: false
+    default: "294100"
+  branch:
+    description: "Steam branch to install (e.g. public, 1.5, 1.4)."
+    required: false
+    default: "public"
+  branch-password:
+    description: "Password for a password-protected beta branch (optional)."
+    required: false
+    default: ""
+  image:
+    description: "Target image ref WITHOUT a tag, e.g. ghcr.io/you/rimworld-game."
+    required: true
+  registry:
+    description: "Registry host for auth (default ghcr.io)."
+    required: false
+    default: "ghcr.io"
+  registry-username:
+    description: "Registry username (default the GitHub actor)."
+    required: false
+    default: ${{ github.actor }}
+  registry-password:
+    description: "Registry token/password. For GHCR pass secrets.GITHUB_TOKEN (needs packages: write)."
+    required: true
+  base-image:
+    description: "Base image to append the game layer onto. Empty = auto (runtime-base if runnable, else a minimal base)."
+    required: false
+    default: ""
+  runnable:
+    description: "true = append onto the xvfb/native-deps runtime base (launchable); false = minimal build/reference base."
+    required: false
+    default: "true"
+  runtime-base-image:
+    description: "Override the default public runtime base image."
+    required: false
+    default: "ghcr.io/cryptiklemur/steam-game-image-action/runtime-base:latest"
+  minimal-base-image:
+    description: "Base used when runnable=false."
+    required: false
+    default: "debian:stable-slim"
+  game-path:
+    description: "Path the game is placed at inside the image."
+    required: false
+    default: "/game"
+  platform:
+    description: "Image platform."
+    required: false
+    default: "linux/amd64"
+  crane-version:
+    description: "go-containerregistry (crane) version to install."
+    required: false
+    default: "0.20.2"
+  skip-if-unchanged:
+    description: "true = compare the published buildid to the image's steam.buildid label and skip when unchanged."
+    required: false
+    default: "true"
+
+outputs:
+  image-ref:
+    description: "The pushed image ref (image:version), empty if skipped."
+    value: ${{ steps.build.outputs.image-ref }}
+  version:
+    description: "The version tag used."
+    value: ${{ steps.build.outputs.version }}
+  buildid:
+    description: "The Steam buildid that was built."
+    value: ${{ steps.gate.outputs.published }}
+  skipped:
+    description: "true if the build was skipped because the buildid was unchanged."
+    value: ${{ steps.gate.outputs.skipped }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install steamcmd, crane, jq
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq --no-install-recommends ca-certificates curl tar jq lib32gcc-s1 >/dev/null
+        mkdir -p "$HOME/.steamcmd"
+        curl -sqL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+          | tar zxf - -C "$HOME/.steamcmd"
+        printf '#!/bin/sh\nexec "%s/steamcmd.sh" "$@"\n' "$HOME/.steamcmd" | sudo tee /usr/local/bin/steamcmd >/dev/null
+        sudo chmod +x /usr/local/bin/steamcmd
+        curl -sSL "https://github.com/google/go-containerregistry/releases/download/v${{ inputs.crane-version }}/go-containerregistry_Linux_x86_64.tar.gz" \
+          | sudo tar -xzf - -C /usr/local/bin crane
+
+    - name: Steam login
+      shell: bash
+      env:
+        STEAM_CONFIG_VDF_B64: ${{ inputs.steam-config-vdf }}
+      run: "${{ github.action_path }}/scripts/steam-login.sh"
+
+    - name: Resolve base image
+      id: base
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -n "${{ inputs.base-image }}" ]; then
+          base="${{ inputs.base-image }}"
+        elif [ "${{ inputs.runnable }}" = "true" ]; then
+          base="${{ inputs.runtime-base-image }}"
+        else
+          base="${{ inputs.minimal-base-image }}"
+        fi
+        echo "base=$base" >> "$GITHUB_OUTPUT"
+        echo "resolved base image: $base"
+
+    - name: Build-id gate
+      id: gate
+      shell: bash
+      env:
+        STEAM_USERNAME: ${{ inputs.steam-username }}
+        APP_ID: ${{ inputs.app-id }}
+        BRANCH: ${{ inputs.branch }}
+        REGISTRY: ${{ inputs.registry }}
+        REGISTRY_USER: ${{ inputs.registry-username }}
+        REGISTRY_PASSWORD: ${{ inputs.registry-password }}
+        IMAGE: ${{ inputs.image }}
+      run: |
+        set -euo pipefail
+        published="$(STEAM_USERNAME="$STEAM_USERNAME" APP_ID="$APP_ID" BRANCH="$BRANCH" \
+          bash "${{ github.action_path }}/scripts/published-buildid.sh" || true)"
+        echo "published='$published'"
+        echo "published=$published" >> "$GITHUB_OUTPUT"
+        if [ "${{ inputs.skip-if-unchanged }}" != "true" ]; then
+          echo "skipped=false" >> "$GITHUB_OUTPUT"; exit 0
+        fi
+        printf '%s' "$REGISTRY_PASSWORD" | crane auth login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+        built="$(crane config "$IMAGE:latest" 2>/dev/null | jq -r '.config.Labels["steam.buildid"] // ""' || true)"
+        echo "built='$built'"
+        if [ -n "$published" ] && [ "$published" = "$built" ]; then
+          echo "up to date; skipping build"
+          echo "skipped=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Download game
+      if: steps.gate.outputs.skipped != 'true'
+      shell: bash
+      env:
+        STEAM_USERNAME: ${{ inputs.steam-username }}
+      run: |
+        set -euo pipefail
+        dir="${RUNNER_TEMP:-/tmp}/game"
+        mkdir -p "$dir"
+        beta=(); [ "${{ inputs.branch }}" != "public" ] && beta=(-beta "${{ inputs.branch }}")
+        [ -n "${{ inputs.branch-password }}" ] && beta+=(-betapassword "${{ inputs.branch-password }}")
+        steamcmd \
+          +@ShutdownOnFailedCommand 1 \
+          +@NoPromptForPassword 1 \
+          +force_install_dir "$dir" \
+          +login "$STEAM_USERNAME" \
+          +app_update "${{ inputs.app-id }}" "${beta[@]}" validate \
+          +quit
+        echo "GAME_DIR=$dir" >> "$GITHUB_ENV"
+
+    - name: Build and push image
+      id: build
+      if: steps.gate.outputs.skipped != 'true'
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        BASE_IMAGE: ${{ steps.base.outputs.base }}
+        REGISTRY: ${{ inputs.registry }}
+        REGISTRY_USER: ${{ inputs.registry-username }}
+        REGISTRY_PASSWORD: ${{ inputs.registry-password }}
+        STEAM_BUILDID: ${{ steps.gate.outputs.published }}
+        GAME_PATH: ${{ inputs.game-path }}
+        PLATFORM: ${{ inputs.platform }}
+      run: "${{ github.action_path }}/scripts/build-image.sh"
+
+    - name: Wipe Steam credentials
+      if: always()
+      shell: bash
+      run: rm -rf "$HOME/Steam" "$HOME/.steam" "$HOME/.local/share/Steam" || true

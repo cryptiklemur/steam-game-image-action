@@ -1,0 +1,25 @@
+# Drop this in YOUR repo at .github/workflows/rimworld-image.yml
+# Builds your private RimWorld image on demand. Requires repo secrets:
+#   STEAM_CONFIG_VDF  - base64 of a steamcmd config.vdf for an account that owns the game
+# (GITHUB_TOKEN is provided automatically and can push to your repo's GHCR namespace.)
+name: rimworld-image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: cryptiklemur/steam-game-image-action@v1
+        with:
+          steam-username: your-steam-account
+          steam-config-vdf: ${{ secrets.STEAM_CONFIG_VDF }}
+          app-id: "294100"        # RimWorld
+          branch: public          # or 1.5, 1.4, ...
+          image: ghcr.io/${{ github.repository_owner }}/rimworld-game
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          runnable: "true"

@@ -1,0 +1,40 @@
+# Public, game-free base for the runnable image. The action `crane append`s the
+# Steam game on top at /game. This layer provides xvfb + the X11/GL/audio native
+# libs a Unity game (e.g. RimWorld's RimWorldLinux) needs to start headless.
+#
+# Contains NO game files and is safe to publish publicly.
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        xvfb \
+        libgl1 \
+        libglu1-mesa \
+        libx11-6 \
+        libxcursor1 \
+        libxrandr2 \
+        libxinerama1 \
+        libxi6 \
+        libxext6 \
+        libxrender1 \
+        libsdl2-2.0-0 \
+        libnss3 \
+        libasound2t64 \
+        libpulse0 \
+        libgtk-3-0 \
+        locales \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=C.UTF-8
+
+# Convenience wrapper: `run-headless <args...>` launches the appended game under a
+# virtual X server. NOTE: RimWorld has no official headless test mode; this gives
+# you a display so a launch (with your own test-runner mod) can proceed. Verify the
+# exact invocation for your game/mod.
+RUN printf '#!/bin/sh\nexec xvfb-run -a "$@"\n' > /usr/local/bin/run-headless \
+    && chmod +x /usr/local/bin/run-headless
+
+WORKDIR /game

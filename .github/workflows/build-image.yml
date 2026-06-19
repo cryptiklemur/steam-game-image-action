@@ -1,0 +1,69 @@
+# Reusable workflow: build + push a private Steam game image.
+# Consumers call this from their own repo:
+#
+#   jobs:
+#     build:
+#       uses: cryptiklemur/steam-game-image-action/.github/workflows/build-image.yml@v1
+#       with:   { image: ghcr.io/you/rimworld-game }
+#       secrets:
+#         steam-config-vdf: ${{ secrets.STEAM_CONFIG_VDF }}
+#         registry-password: ${{ secrets.GITHUB_TOKEN }}
+#       permissions: { packages: write }
+name: build-image
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: "Target image ref without tag, e.g. ghcr.io/you/rimworld-game."
+        required: true
+        type: string
+      steam-username:
+        description: "Steam account name (not secret)."
+        required: true
+        type: string
+      app-id:
+        required: false
+        type: string
+        default: "294100"
+      branch:
+        required: false
+        type: string
+        default: "public"
+      runnable:
+        required: false
+        type: string
+        default: "true"
+      skip-if-unchanged:
+        required: false
+        type: string
+        default: "true"
+      registry:
+        required: false
+        type: string
+        default: "ghcr.io"
+    secrets:
+      steam-config-vdf:
+        required: true
+      registry-password:
+        required: true
+
+jobs:
+  build:
+    name: build-image
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: cryptiklemur/steam-game-image-action@v1
+        with:
+          steam-username: ${{ inputs.steam-username }}
+          steam-config-vdf: ${{ secrets.steam-config-vdf }}
+          app-id: ${{ inputs.app-id }}
+          branch: ${{ inputs.branch }}
+          image: ${{ inputs.image }}
+          registry: ${{ inputs.registry }}
+          registry-password: ${{ secrets.registry-password }}
+          runnable: ${{ inputs.runnable }}
+          skip-if-unchanged: ${{ inputs.skip-if-unchanged }}
