@@ -93,6 +93,15 @@ FROM ghcr.io/you/rimworld-game:latest
 # reference /game/RimWorldLinux_Data/Managed/*.dll in your .csproj HintPaths
 ```
 
+For a complete CI workflow that pulls the image, stages the DLLs, and `dotnet build`s a
+mod, see [`examples/build-mod-against-game.yml`](examples/build-mod-against-game.yml).
+
+> **Publicization gotcha.** `Krafs.Rimworld.Ref` ships *publicized* assemblies (all
+> members public); the real shipped DLLs are not. Source that uses `public override` on
+> a protected member, or accesses non-public members, compiles against Krafs but **fails
+> against the real DLLs** (CS0507 / CS0122). Match the real access level, or add a
+> publicizer (e.g. `Krafs.Publicizer`).
+
 To launch it, the runnable base ships a `run-headless` helper (`xvfb-run -a "$@"`):
 
 ```sh

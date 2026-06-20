@@ -1,0 +1,57 @@
+# Drop this in YOUR mod repo at .github/workflows/build.yml
+# Compiles a mod against the REAL game assemblies from your private image (built by
+# build-on-demand.yml / watch-and-build.yml in this same examples/ folder).
+#
+# It pulls the private image, extracts the managed DLLs to a path your .csproj
+# references, and builds.
+#
+# HEADS-UP (RimWorld + many Unity games): the public Krafs.Rimworld.Ref NuGet ships
+# *publicized* reference assemblies (every member made public). The REAL shipped DLLs
+# are NOT publicized, so source that uses `public override` on a protected member, or
+# touches non-public members, will NOT compile against them (you'll get CS0507 /
+# CS0122). Either match the real access levels, or add a publicizer to your csproj
+# (e.g. Krafs.Publicizer with <Publicize Include="Assembly-CSharp" />).
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read   # pull the private game image
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage real game assemblies from the image
+        env:
+          GAME_IMAGE: ghcr.io/${{ github.repository_owner }}/rimworld-game:latest
+        run: |
+          set -euo pipefail
+          img="$(printf '%s' "$GAME_IMAGE" | tr '[:upper:]' '[:lower:]')"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull -q "$img"
+          cid="$(docker create "$img")"
+          # Stage where a typical RimWorld .csproj looks for a local install.
+          sudo mkdir -p /mnt/games/RimWorld
+          sudo chown "$(id -u):$(id -g)" /mnt/games/RimWorld
+          docker cp "$cid:/game/RimWorldLinux_Data" /mnt/games/RimWorld/RimWorldLinux_Data
+          docker rm -f "$cid" >/dev/null
+          test -f /mnt/games/RimWorld/RimWorldLinux_Data/Managed/Assembly-CSharp.dll
+          echo "Staged real assemblies at /mnt/games/RimWorld"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build the mod
+        run: |
+          # Reference the real DLLs from your .csproj, e.g.:
+          #   <Reference Include="/mnt/games/RimWorld/RimWorldLinux_Data/Managed/*.dll"
+          #             Condition="Exists('/mnt/games/RimWorld/RimWorldLinux_Data/Managed')" />
+          # Many RimWorld csprojs already check this path and fall back to Krafs.Rimworld.Ref.
+          dotnet build YourMod.sln -c Release
