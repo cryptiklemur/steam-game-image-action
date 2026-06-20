@@ -27,6 +27,9 @@ STEAM_BUILDID="${STEAM_BUILDID:-}"
 GAME_PATH="${GAME_PATH:-/game}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 
+# OCI references must be lowercase (registry owner/repo can be mixed-case).
+IMAGE="$(printf '%s' "$IMAGE" | tr '[:upper:]' '[:lower:]')"
+
 if [ ! -d "$GAME_DIR" ] || [ -z "$(find "$GAME_DIR" -mindepth 1 -print -quit 2>/dev/null)" ]; then
     echo "GAME_DIR '$GAME_DIR' is missing or empty - did the download run?" >&2
     exit 1

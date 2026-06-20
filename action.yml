@@ -122,6 +122,10 @@ runs:
         fi
         echo "base=$base" >> "$GITHUB_OUTPUT"
         echo "resolved base image: $base"
+        # OCI refs must be lowercase; github.repository_owner can be mixed-case.
+        image="$(printf '%s' "${{ inputs.image }}" | tr '[:upper:]' '[:lower:]')"
+        echo "image=$image" >> "$GITHUB_OUTPUT"
+        echo "resolved image: $image"
 
     - name: Build-id gate
       id: gate
@@ -133,7 +137,7 @@ runs:
         REGISTRY: ${{ inputs.registry }}
         REGISTRY_USER: ${{ inputs.registry-username }}
         REGISTRY_PASSWORD: ${{ inputs.registry-password }}
-        IMAGE: ${{ inputs.image }}
+        IMAGE: ${{ steps.base.outputs.image }}
       run: |
         set -euo pipefail
         published="$(STEAM_USERNAME="$STEAM_USERNAME" APP_ID="$APP_ID" BRANCH="$BRANCH" \
@@ -191,7 +195,7 @@ runs:
       if: steps.gate.outputs.skipped != 'true'
       shell: bash
       env:
-        IMAGE: ${{ inputs.image }}
+        IMAGE: ${{ steps.base.outputs.image }}
         BASE_IMAGE: ${{ steps.base.outputs.base }}
         REGISTRY: ${{ inputs.registry }}
         REGISTRY_USER: ${{ inputs.registry-username }}
