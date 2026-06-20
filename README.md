@@ -96,8 +96,18 @@ docker run --rm ghcr.io/you/rimworld-game:latest run-headless /game/RimWorldLinu
 `steamcmd` downloads the game, then `crane append` layers it onto a public,
 game-free [`runtime-base`](Dockerfile.runtime-base) image (no Docker daemon needed)
 and pushes to your registry, stamping a `steam.buildid` OCI label. The label is the
-only state the build-id gate needs. Mechanics are a generalization of a private
-setup the author runs for another Steam game.
+only state the build-id gate needs.
+
+Two layers of caching keep it cheap:
+
+- **Build-id gate** (`skip-if-unchanged`): when the published buildid already matches
+  the image's `steam.buildid` label, the action downloads nothing and pushes nothing.
+  No new version → no rebuild.
+- **Install cache** (`actions/cache`): on an actual rebuild, the prior game install is
+  restored and `app_update` fetches only the changed files (a delta), not the whole
+  game. Keyed by app id + branch.
+
+Mechanics are a generalization of a private setup the author runs for another Steam game.
 
 ## License
 

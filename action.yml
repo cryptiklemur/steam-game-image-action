@@ -153,6 +153,19 @@ runs:
           echo "skipped=false" >> "$GITHUB_OUTPUT"
         fi
 
+    - name: Restore game install cache
+      if: steps.gate.outputs.skipped != 'true'
+      uses: actions/cache@v4
+      with:
+        # Restore the prior install so steamcmd app_update fetches only the delta.
+        # The exact-buildid key never hits on a real rebuild (the gate only lets us
+        # here when the buildid changed), so the prefix restore-key restores the most
+        # recent install and a fresh entry is saved post-job under the new buildid.
+        path: ${{ runner.temp }}/steam-game
+        key: steam-${{ inputs.app-id }}-${{ inputs.branch }}-${{ steps.gate.outputs.published }}
+        restore-keys: |
+          steam-${{ inputs.app-id }}-${{ inputs.branch }}-
+
     - name: Download game
       if: steps.gate.outputs.skipped != 'true'
       shell: bash
@@ -160,7 +173,7 @@ runs:
         STEAM_USERNAME: ${{ inputs.steam-username }}
       run: |
         set -euo pipefail
-        dir="${RUNNER_TEMP:-/tmp}/game"
+        dir="${RUNNER_TEMP:-/tmp}/steam-game"
         mkdir -p "$dir"
         beta=(); [ "${{ inputs.branch }}" != "public" ] && beta=(-beta "${{ inputs.branch }}")
         [ -n "${{ inputs.branch-password }}" ] && beta+=(-betapassword "${{ inputs.branch-password }}")
