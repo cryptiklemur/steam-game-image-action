@@ -1,10 +1,14 @@
-# Publish the public, game-free runtime-base image to GHCR.
-# Runs on a version tag (vN.N.N) and on manual dispatch. Contains NO game files.
-name: release
+name: runtime-base
 
+# The public, game-free base the action appends the game layer onto. The action
+# always consumes runtime-base:latest, so this only needs to rebuild when its
+# Dockerfile changes (or on demand) - not on every action release.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths:
+      - Dockerfile.runtime-base
+      - .github/workflows/runtime-base.yml
   workflow_dispatch:
 
 permissions:
@@ -23,12 +27,10 @@ jobs:
           GHCR_USER: ${{ github.actor }}
         run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
       - name: Build and push runtime-base
+        env:
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          IMG="ghcr.io/${{ github.repository }}/runtime-base"
+          IMG="ghcr.io/${REPO}/runtime-base"
           docker build --pull -f Dockerfile.runtime-base -t "$IMG:latest" .
           docker push "$IMG:latest"
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            docker tag "$IMG:latest" "$IMG:${{ github.ref_name }}"
-            docker push "$IMG:${{ github.ref_name }}"
-          fi

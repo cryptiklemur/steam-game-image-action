@@ -1,0 +1,15 @@
+{
+  "name": "steam-game-image-action",
+  "version": "0.0.0-semantically-released",
+  "private": true,
+  "description": "GitHub Action: download a Steam game with steamcmd and push it as a private OCI image.",
+  "license": "MIT",
+  "repository": "github:cryptiklemur/steam-game-image-action",
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/exec": "^7.0.3",
+    "@semantic-release/github": "^11.0.1",
+    "@semantic-release/release-notes-generator": "^14.0.3",
+    "semantic-release": "^24.2.3"
+  }
+}
