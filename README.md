@@ -66,7 +66,7 @@ cron runs stay cheap and only a genuinely new build kicks off a rebuild.
 | `app-id` | `294100` | Steam app id (RimWorld) |
 | `branch` | `public` | Steam branch, e.g. `1.5`, `1.4` |
 | `branch-password` | `""` | for password-protected betas |
-| `image` | — | target ref without tag, e.g. `ghcr.io/you/rimworld-game` |
+| `image` | N/A | target ref without tag, e.g. `ghcr.io/you/rimworld-game` |
 | `registry` / `registry-username` / `registry-password` | `ghcr.io` / actor / N/A | push auth (GHCR + `GITHUB_TOKEN` works) |
 | `runnable` | `true` | `true` appends onto the xvfb/native-deps base; `false` gives a minimal build/reference base |
 | `include-paths` | `""` (whole game) | space/newline-separated subpaths to include, e.g. `RimWorldLinux_Data/Managed` for a DLLs-only image |
