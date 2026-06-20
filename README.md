@@ -61,15 +61,25 @@ cron runs stay cheap and only a genuinely new build kicks off a rebuild.
 
 | input | default | notes |
 |---|---|---|
-| `steam-username` | — | account that owns the game |
-| `steam-config-vdf` | — | base64 of a steamcmd `config.vdf` (a secret) |
+| `steam-username` | N/A | account that owns the game |
+| `steam-config-vdf` | N/A | base64 of a steamcmd `config.vdf` (a secret) |
 | `app-id` | `294100` | Steam app id (RimWorld) |
 | `branch` | `public` | Steam branch, e.g. `1.5`, `1.4` |
 | `branch-password` | `""` | for password-protected betas |
 | `image` | — | target ref without tag, e.g. `ghcr.io/you/rimworld-game` |
 | `registry` / `registry-username` / `registry-password` | `ghcr.io` / actor / — | push auth (GHCR + `GITHUB_TOKEN` works) |
 | `runnable` | `true` | `true` appends onto the xvfb/native-deps base; `false` gives a minimal build/reference base |
+| `include-paths` | `""` (whole game) | space/newline-separated subpaths to include, e.g. `RimWorldLinux_Data/Managed` for a DLLs-only image |
 | `skip-if-unchanged` | `true` | gate on the `steam.buildid` label |
+
+Two common shapes:
+
+- **Runnable (default):** `runnable: true`, `include-paths` empty → the whole game on the
+  xvfb base, so you can launch it in CI. Big (~GB).
+- **Build/reference only:** `include-paths: RimWorldLinux_Data/Managed` + `runnable: false`
+  → just the managed assemblies on a minimal base. Tiny; compile against the real DLLs
+  without dragging the whole game. (`include-paths` is relative to the game install; the
+  `*_Data/Managed` layout is Unity-specific.)
 
 Outputs: `image-ref`, `version`, `buildid`, `skipped`.
 

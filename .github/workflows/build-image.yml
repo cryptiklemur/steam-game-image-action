@@ -34,6 +34,10 @@ on:
         required: false
         type: string
         default: "true"
+      include-paths:
+        required: false
+        type: string
+        default: ""
       skip-if-unchanged:
         required: false
         type: string
@@ -66,4 +70,5 @@ jobs:
           registry: ${{ inputs.registry }}
           registry-password: ${{ secrets.registry-password }}
           runnable: ${{ inputs.runnable }}
+          include-paths: ${{ inputs.include-paths }}
           skip-if-unchanged: ${{ inputs.skip-if-unchanged }}

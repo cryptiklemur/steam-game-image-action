@@ -26,6 +26,7 @@ set -euo pipefail
 STEAM_BUILDID="${STEAM_BUILDID:-}"
 GAME_PATH="${GAME_PATH:-/game}"
 PLATFORM="${PLATFORM:-linux/amd64}"
+INCLUDE_PATHS="${INCLUDE_PATHS:-}"
 
 # OCI references must be lowercase (registry owner/repo can be mixed-case).
 IMAGE="$(printf '%s' "$IMAGE" | tr '[:upper:]' '[:lower:]')"
@@ -41,12 +42,22 @@ VERSION="$(printf '%s' "$VERSION_RAW" | awk '{print $1}' | tr -c 'A-Za-z0-9._-' 
 echo "steam-game-image: version='$VERSION' buildid='${STEAM_BUILDID:-none}'"
 
 LAYER="$(mktemp -d)/game.tar"
-tar -C "$GAME_DIR" \
-    --exclude=./steamapps \
-    --exclude=./lost+found \
-    --transform="s,^\.,${GAME_PATH#/}," \
-    -cf "$LAYER" .
-echo "steam-game-image: staged layer $(du -h "$LAYER" | cut -f1) at $GAME_PATH"
+if [ -n "$INCLUDE_PATHS" ]; then
+    for p in $INCLUDE_PATHS; do
+        [ -e "$GAME_DIR/$p" ] || { echo "include path not found in game dir: $p" >&2; exit 1; }
+    done
+    # word-splitting INCLUDE_PATHS is intentional (multiple subpaths)
+    # shellcheck disable=SC2086
+    tar -C "$GAME_DIR" --transform="s,^,${GAME_PATH#/}/," -cf "$LAYER" $INCLUDE_PATHS
+    echo "steam-game-image: staged layer $(du -h "$LAYER" | cut -f1) at $GAME_PATH (subset: $INCLUDE_PATHS)"
+else
+    tar -C "$GAME_DIR" \
+        --exclude=./steamapps \
+        --exclude=./lost+found \
+        --transform="s,^\.,${GAME_PATH#/}," \
+        -cf "$LAYER" .
+    echo "steam-game-image: staged layer $(du -h "$LAYER" | cut -f1) at $GAME_PATH (full game)"
+fi
 
 printf '%s' "$REGISTRY_PASSWORD" | crane auth login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 

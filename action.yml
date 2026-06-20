@@ -70,6 +70,14 @@ inputs:
     description: "true = compare the published buildid to the image's steam.buildid label and skip when unchanged."
     required: false
     default: "true"
+  include-paths:
+    description: >-
+      Space/newline-separated subpaths (relative to the game install dir) to include
+      in the image. Empty (default) = the whole game (runnable). Set e.g.
+      'RimWorldLinux_Data/Managed' for a tiny build/reference image with just the
+      managed assemblies. Pair a subset with runnable=false.
+    required: false
+    default: ""
 
 outputs:
   image-ref:
@@ -203,6 +211,7 @@ runs:
         STEAM_BUILDID: ${{ steps.gate.outputs.published }}
         GAME_PATH: ${{ inputs.game-path }}
         PLATFORM: ${{ inputs.platform }}
+        INCLUDE_PATHS: ${{ inputs.include-paths }}
       run: "${{ github.action_path }}/scripts/build-image.sh"
 
     - name: Wipe Steam credentials
