@@ -1,8 +1,5 @@
 name: "Build Steam game image"
-description: >-
-  Download a Steam game via steamcmd and push it as a private OCI image to your
-  own registry (defaults to RimWorld, app 294100). The game image is never
-  published by this action; you push it to a registry you control.
+description: "Download a Steam game with steamcmd and push it as a private OCI image to a registry you control."
 author: cryptiklemur
 branding:
   icon: download-cloud
