@@ -17,14 +17,13 @@ keeping the resulting image private is on you.
 
 ## Why bother
 
-Some games have a community reference package, so mods compile with no game install at
-all. So why this? Two things a stub package can't do:
+For a lot of games a community reference package lets mods compile with no game install at
+all, so why bother with this? Two reasons a stub package can't cover:
 
-- Build against the real shipped assemblies, not ref-only stubs — so what compiles in CI
-  is exactly what loads in the game.
-- Actually run the game in CI. The default image carries `xvfb` plus the X11/GL/audio
-  native libs so a Linux build can launch (you bring the test-runner mod, see the caveat
-  below).
+- It builds against the real shipped assemblies instead of ref-only stubs, so what compiles
+  in CI is what actually loads in the game.
+- It can run the game in CI. The default image carries `xvfb` and the X11/GL/audio native
+  libs so a Linux build can launch. You supply the test-runner mod (see the caveat below).
 
 ## Quick start
 
@@ -77,21 +76,21 @@ cron runs stay cheap and only a genuinely new build kicks off a rebuild.
 | `include-paths` | `""` (whole game) | space/newline-separated subpaths to include, e.g. `RimWorldLinux_Data/Managed` for a DLLs-only image |
 | `skip-if-unchanged` | `true` | gate on the `steam.buildid` label |
 
-Two common shapes:
+How people usually run it:
 
-- **Runnable (default):** `runnable: true`, `include-paths` empty → the whole game on the
-  xvfb base, so you can launch it in CI. Big (~GB).
-- **Build/reference only:** `include-paths: RimWorldLinux_Data/Managed` + `runnable: false`
-  → just the managed assemblies on a minimal base. Tiny; compile against the real DLLs
-  without dragging the whole game. (`include-paths` is relative to the game install; the
-  `*_Data/Managed` layout is Unity-specific.)
+- **Runnable (default):** `runnable: true` with `include-paths` empty gives you the whole
+  game on the xvfb base, so you can launch it in CI. It's big, on the order of a GB.
+- **Build/reference only:** `include-paths: RimWorldLinux_Data/Managed` with `runnable: false`
+  gets you just the managed assemblies on a minimal base. Tiny, and enough to compile against
+  the real DLLs without dragging the whole game along. (`include-paths` is relative to the game
+  install, and the `*_Data/Managed` layout is a Unity thing.)
 
 Outputs: `image-ref`, `version`, `buildid`, `skipped`.
 
 ## Using the image
 
-The image carries the real shipped assemblies, so a mod's CI can build against them: pull
-the image, copy the managed DLLs out onto the runner, and build. A minimal mod workflow:
+The image has the real shipped assemblies in it, so your mod's CI can build straight against
+them. Pull the image, copy the managed DLLs onto the runner, build. A whole mod workflow:
 
 ```yaml
 # .github/workflows/build.yml in your mod repo
@@ -145,7 +144,7 @@ game-free [`runtime-base`](Dockerfile.runtime-base) image (no Docker daemon need
 and pushes to your registry, stamping a `steam.buildid` OCI label. That label is the
 only state the build-id gate needs.
 
-Two layers of caching keep it cheap:
+Caching keeps it cheap, in two places:
 
 - Build-id gate (`skip-if-unchanged`): when the published buildid already matches the
   image's `steam.buildid` label, the action downloads nothing and pushes nothing. No
@@ -154,8 +153,7 @@ Two layers of caching keep it cheap:
   restored and `app_update` fetches only the changed files (a delta) instead of the
   whole game. Keyed by app id and branch.
 
-The mechanics are a generalization of a private setup the author runs for another
-Steam game.
+It's basically a cleaned-up version of a private setup I run for another Steam game.
 
 ## License
 
