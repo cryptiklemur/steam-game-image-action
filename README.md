@@ -1,5 +1,10 @@
 # steam-game-image-action
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/quality_gate?project=cryptiklemur_steam-game-image-action)](https://sonarcloud.io/summary/new_code?id=cryptiklemur_steam-game-image-action)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=cryptiklemur_steam-game-image-action&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=cryptiklemur_steam-game-image-action)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=cryptiklemur_steam-game-image-action&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=cryptiklemur_steam-game-image-action)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cryptiklemur_steam-game-image-action&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cryptiklemur_steam-game-image-action)
+
 Downloads a Steam game with `steamcmd` and pushes it as a private OCI image to a
 registry you control, so CI can build mods against the real game assemblies and
 launch the game in a container. Defaults to RimWorld (app `294100`) but works for
