@@ -102,7 +102,10 @@ runs:
         CRANE_VERSION: ${{ inputs.crane-version }}
       run: |
         set -euo pipefail
-        sudo apt-get update -qq
+        # Retry transient mirror hiccups (the runner's packages.microsoft.com source
+        # intermittently returns "Resource temporarily unavailable"); none of the
+        # packages below come from it, so a flaky refresh of it should not warn.
+        sudo apt-get -o Acquire::Retries=3 update -qq
         sudo apt-get install -y -qq --no-install-recommends ca-certificates curl tar jq lib32gcc-s1 >/dev/null
         mkdir -p "$HOME/.steamcmd"
         curl -sqL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
